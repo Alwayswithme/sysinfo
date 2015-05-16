@@ -26,33 +26,45 @@ def sh(cmd, in_shell=False, get_str=True):
 class Hwinfo:
     @classmethod
     def product(cls):
+        """
+        execute shell command and get information about product
+        """
         cmd = 'dmidecode -s system-product-name | head -1'
         output = sh(cmd, True)
         return Info('Product', output.strip())
     
     @classmethod
     def distro(cls):
-        cmd = 'cat /etc/os-release | egrep "(^NAME=|^VERSION=)"'
+        """
+        execute shell command and get information about distribution
+        """
+        cmd = 'lsb_release -sirc'
         output = sh(cmd, True)
-        list = output.split('\n')
-        name = list[0].split('=')[1]
-        version = list[1].split('=')[1].replace('"', '')
-        return Info('Distro', ' '.join((name, version)))
+        return Info('Distro', output.strip())
     
     @classmethod
     def kernel(cls):
-        cmd = ['uname', '-o', '-r']
+        """
+        execute shell command and get information about kernel
+        """
+        cmd = ['uname', '-or']
         output = sh(cmd)
         return Info('Kernel', output.strip())
     
     @classmethod
     def processor(cls):
+        """
+        execute shell command and get information about CPU
+        """
         cmd = 'dmidecode -s processor-version | head -1'
         output = sh(cmd, True)
         return Info('Processor', output.strip())
     
     @classmethod
     def baseboard(cls):
+        """
+        execute shell command and get information about baseboard
+        """
         vendor = sh('cat /sys/devices/virtual/dmi/id/board_vendor', True)
         name = sh('cat /sys/devices/virtual/dmi/id/board_name', True)
         chipset = sh('lspci | grep ISA | sed -e "s/.*: //" -e "s/LPC.*//"', True)
@@ -60,46 +72,49 @@ class Hwinfo:
         return Info('BaseBoard', desc.replace('\n', ' ', 2).strip())
 
     def __init__(self):
-        infos = []
-        infos.append(Hwinfo.product())
-        infos.append(Hwinfo.distro())
-        infos.append(Hwinfo.kernel())
-        infos.append(Hwinfo.processor())
-        infos.append(Hwinfo.baseboard())
-        infos.append(Rom())
-        infos.append(Memory())
-        infos.append(Disk())
-        infos.append(OnboardDevice())
+        """
+        execute shell command and get information about hardware
+        """
+        infos = [
+            Hwinfo.product(), Hwinfo.distro(), Hwinfo.kernel(), 
+            Hwinfo.processor(), Hwinfo.baseboard(), Rom(),
+            Memory(), Disk(), OnboardDevice()
+            ]
         self.info_list = infos
     
     def __str__(self):
         return ''.join([i.msg() for i in self.info_list])
 
 class Info:
-    fieldWidth = 10
-    spaces = '│──'
-    # represent any hardware information
+    """
+    represent any hardware information
+    """
+    WIDTH = 10
+    INDENT = '│──'
+
     def __init__(self, name, desc):
         self.name = name
         self.desc = desc
         self.subInfo = []
 
-    # generate the message to print
     def msg(self):
+        """
+        generate the message to print
+        """ 
         msg = []
-        spaces = ' ' * (Info.fieldWidth - len(self.name))
-        main_msg = '{0}{1}: {2}\n'.format(self.name, spaces, self.desc)
+        margin = ' ' * (Info.WIDTH - len(self.name))
+        main_msg = '{0}{1}: {2}\n'.format(self.name, margin, self.desc)
         msg.append(main_msg)
         sub_msg = [ self.indent_subInfo(i) for i in self.subInfo if i]
         if sub_msg:
             sub_msg[-1] = sub_msg[-1].replace('│', '└')
         return ''.join(msg + sub_msg)
     
-    def add_subInfo(self, subInfo):
+    def addSubInfo(self, subInfo):
         self.subInfo.append(subInfo)
     
     def indent_subInfo(self, line):
-        return Info.spaces + line
+        return Info.INDENT + line
     
     def __str__(self):
         return  '"name": {0}, "description": {1}'.format(self.name, self.desc)
@@ -107,8 +122,8 @@ class Info:
 class Rom(Info):
     def __init__(self):
         self.rom_list = self.roms()
-        Info.__init__(self, 'Rom', self.get_desc())
-    def get_desc(self):
+        Info.__init__(self, 'Rom', self.getDesc())
+    def getDesc(self):
         roms = [self.transform(i) for i in self.rom_list]
         roms_msg = ['{0} {1}'.format(i['VENDOR'], i['MODEL']) for i in roms]
         return ' '.join(roms_msg)
@@ -130,12 +145,12 @@ class Rom(Info):
 class OnboardDevice(Info):
     def __init__(self):
         Info.__init__(self, 'Onboard', '')
-        self.ob_devices = self.onboard_device()
-        info = [self.ob_to_str(i) for i in self.ob_devices]
+        self.ob_devices = self.onboardDevices()
+        info = [self.obToStr(i) for i in self.ob_devices]
         for i in info:
-            self.add_subInfo(i);
+            self.addSubInfo(i)
 
-    def onboard_device(self):
+    def onboardDevices(self):
         cmd = ['dmidecode', '-t', '41']
         parsing = False
         ob_list = []
@@ -157,7 +172,7 @@ class OnboardDevice(Info):
                     ob_list.append(ob)
         return ob_list
 
-    def ob_to_str(self, ob):
+    def obToStr(self, ob):
         tvalue = ob['Type']
         desvalue = ob['Reference Designation']
         ret = '{0}: {1}\n'.format(tvalue, desvalue)
@@ -165,25 +180,26 @@ class OnboardDevice(Info):
 
 class Disk(Info):
     def __init__(self):
-        self.disks = self.disk_list()
-        Info.__init__(self, 'Disks', ' '.join(self.disk_list()))
-        self.details = self.disks_detail(self.disks)
-        detail_strs = [ self.extract_disk_detail(i) for i in self.details]
+        self.disks = self.diskList()
+        Info.__init__(self, 'Disks', ' '.join(self.disks))
+        self.details = self.disksDetail(self.disks)
+        detail_strs = [ self.extractDiskDetail(i) for i in self.details]
         for i in detail_strs:
-            self.add_subInfo(i)
+            self.addSubInfo(i)
     
-    # query how many disk
-    def disk_list(self):
+    def diskList(self):
+        """
+        find out how many disk in this machine
+        """
         sds = sh('ls -1d /dev/sd[a-z]', in_shell=True)
         sd_list = [x for x in sds.split('\n') if x]
         return sd_list
 
-    def disks_detail(self, sd_list):
+    def disksDetail(self, sd_list):
         cmd = ['smartctl', '-i']
         parsing = False
         splitter = ':'
         disk_list = []
-        attrs = ['Model Family', 'Device Model', 'User Capacity']
         try:
             for i in sd_list:
                 new_cmd = cmd[:]
@@ -214,8 +230,9 @@ class Disk(Info):
             pass
         return disk_list
 
-    def extract_disk_detail(self, disk):
-        line = '{node}: {device} {capacity}\n'.format(node=disk['node'], device=disk['device'],
+    def extractDiskDetail(self, disk):
+        line = '{node}: {device} {capacity}\n'.format(
+            node=disk['node'], device=disk['device'],
             capacity=disk['capacity'])
         return line
 
@@ -223,10 +240,10 @@ class Disk(Info):
 class Memory(Info):
     def __init__(self):
         self.memory = self.memory()
-        Info.__init__(self, 'Memory', self.get_desc(self.memory))
-        detail_strs = [ self.extract_mem_detail(i) for i in self.memory]
+        Info.__init__(self, 'Memory', self.getDesc(self.memory))
+        detail_strs = [ self.extractMemDetail(i) for i in self.memory]
         for i in detail_strs:
-            self.add_subInfo(i)
+            self.addSubInfo(i)
 
     def memory(self):
         cmd = ['dmidecode', '-t', 'memory']
@@ -252,7 +269,7 @@ class Memory(Info):
                     mem_list.append(mem)
         return mem_list
 
-    def extract_mem_detail(self, mem):
+    def extractMemDetail(self, mem):
         # maybe no memory in this slot
         if 'Unknown' in mem['Type'] and 'No Module Installed' in mem['Size']:
             return ''
@@ -261,12 +278,12 @@ class Memory(Info):
             type=mem['Type'], speed=mem['Speed'])
         return line
 
-    def get_desc(self, mem_list):
-        mem_size = [self.conv_memsize(i['Size']) for i in mem_list]
+    def getDesc(self, mem_list):
+        mem_size = [self.convertMemSize(i['Size']) for i in mem_list]
         total = sum(mem_size)
         return '{0} MB Total'.format(total)
     
-    def conv_memsize(self, size_str):
+    def convertMemSize(self, size_str):
         (size, unit) = size_str.split(' ', 1);
         try:
             return int(size)
@@ -274,5 +291,4 @@ class Memory(Info):
             return 0
         
 check_permission()
-system_info = Hwinfo()
-print(system_info)
+print(Hwinfo())
