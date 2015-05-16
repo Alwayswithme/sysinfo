@@ -27,43 +27,43 @@ class Hwinfo:
     @classmethod
     def product(cls):
         """
-        execute shell command and get information about product
+        detect information about product
         """
         cmd = 'dmidecode -s system-product-name | head -1'
         output = sh(cmd, True)
         return Info('Product', output.strip())
-    
+
     @classmethod
     def distro(cls):
         """
-        execute shell command and get information about distribution
+        detect information about distribution
         """
         cmd = 'lsb_release -sirc'
         output = sh(cmd, True)
         return Info('Distro', output.strip())
-    
+
     @classmethod
     def kernel(cls):
         """
-        execute shell command and get information about kernel
+        detect information about kernel
         """
         cmd = ['uname', '-or']
         output = sh(cmd)
         return Info('Kernel', output.strip())
-    
+
     @classmethod
     def processor(cls):
         """
-        execute shell command and get information about CPU
+        detect information about CPU
         """
         cmd = 'dmidecode -s processor-version | head -1'
         output = sh(cmd, True)
         return Info('Processor', output.strip())
-    
+
     @classmethod
     def baseboard(cls):
         """
-        execute shell command and get information about baseboard
+        detect information about baseboard
         """
         vendor = sh('cat /sys/devices/virtual/dmi/id/board_vendor', True)
         name = sh('cat /sys/devices/virtual/dmi/id/board_name', True)
@@ -76,12 +76,12 @@ class Hwinfo:
         execute shell command and get information about hardware
         """
         infos = [
-            Hwinfo.product(), Hwinfo.distro(), Hwinfo.kernel(), 
+            Hwinfo.product(), Hwinfo.distro(), Hwinfo.kernel(),
             Hwinfo.processor(), Hwinfo.baseboard(), Rom(),
             Memory(), Disk(), OnboardDevice()
             ]
         self.info_list = infos
-    
+
     def __str__(self):
         return ''.join([i.msg() for i in self.info_list])
 
@@ -100,7 +100,7 @@ class Info:
     def msg(self):
         """
         generate the message to print
-        """ 
+        """
         msg = []
         margin = ' ' * (Info.WIDTH - len(self.name))
         main_msg = '{0}{1}: {2}\n'.format(self.name, margin, self.desc)
@@ -109,13 +109,13 @@ class Info:
         if sub_msg:
             sub_msg[-1] = sub_msg[-1].replace('│', '└')
         return ''.join(msg + sub_msg)
-    
+
     def addSubInfo(self, subInfo):
         self.subInfo.append(subInfo)
-    
+
     def indent_subInfo(self, line):
         return Info.INDENT + line
-    
+
     def __str__(self):
         return  '"name": {0}, "description": {1}'.format(self.name, self.desc)
 
@@ -127,7 +127,7 @@ class Rom(Info):
         roms = [self.transform(i) for i in self.rom_list]
         roms_msg = ['{0} {1}'.format(i['VENDOR'], i['MODEL']) for i in roms]
         return ' '.join(roms_msg)
-    
+
     def transform(self, line):
         rom = {}
         for line in re.split(r'(?<=") ', line):
@@ -141,7 +141,7 @@ class Rom(Info):
         output = sh(cmd, True)
         rom_list = [x for x in output.split('\n') if x]
         return rom_list
-    
+
 class OnboardDevice(Info):
     def __init__(self):
         Info.__init__(self, 'Onboard', '')
@@ -186,7 +186,7 @@ class Disk(Info):
         detail_strs = [ self.extractDiskDetail(i) for i in self.details]
         for i in detail_strs:
             self.addSubInfo(i)
-    
+
     def diskList(self):
         """
         find out how many disk in this machine
@@ -282,13 +282,13 @@ class Memory(Info):
         mem_size = [self.convertMemSize(i['Size']) for i in mem_list]
         total = sum(mem_size)
         return '{0} MB Total'.format(total)
-    
+
     def convertMemSize(self, size_str):
         (size, unit) = size_str.split(' ', 1);
         try:
             return int(size)
         except ValueError:
             return 0
-        
+
 check_permission()
 print(Hwinfo())
