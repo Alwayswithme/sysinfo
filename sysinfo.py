@@ -40,7 +40,7 @@ class Hwinfo:
         """
         cmd = 'lsb_release -sirc'
         output = sh(cmd, True)
-        return Info('Distro', output.strip())
+        return Info('Distro', output.strip().replace('\n', ' '))
 
     @classmethod
     def kernel(cls):
@@ -67,7 +67,7 @@ class Hwinfo:
         """
         vendor = sh('cat /sys/devices/virtual/dmi/id/board_vendor', True)
         name = sh('cat /sys/devices/virtual/dmi/id/board_name', True)
-        chipset = sh('lspci | grep ISA | sed -e "s/.*: //" -e "s/LPC.*//"', True)
+        chipset = sh('lspci | grep ISA | sed -e "s/.*: //" -e "s/LPC.*//" -e "s/Controller.*//"', True)
         desc = vendor + name + chipset
         return Info('BaseBoard', desc.replace('\n', ' ', 2).strip())
 
@@ -101,6 +101,8 @@ class Info:
         """
         generate the message to print
         """
+        if self.desc == 'noop':
+            return ''
         msg = []
         margin = ' ' * (Info.WIDTH - len(self.name))
         main_msg = '{0}{1}: {2}\n'.format(self.name, margin, self.desc)
@@ -122,7 +124,7 @@ class Info:
 class Rom(Info):
     def __init__(self):
         self.rom_list = self.roms()
-        Info.__init__(self, 'Rom', self.getDesc())
+        Info.__init__(self, 'Rom', self.getDesc() if self.rom_list else 'noop')
     def getDesc(self):
         roms = [self.transform(i) for i in self.rom_list]
         roms_msg = ['{0} {1}'.format(i['VENDOR'], i['MODEL']) for i in roms]
@@ -138,14 +140,18 @@ class Rom(Info):
         return rom
     def roms(self):
         cmd = """lsblk -dP -o VENDOR,TYPE,MODEL | grep 'TYPE="rom"'"""
-        output = sh(cmd, True)
-        rom_list = [x for x in output.split('\n') if x]
-        return rom_list
+        try:
+            output = sh(cmd, True)
+            rom_list = [x for x in output.split('\n') if x]
+            return rom_list
+        except Exception:
+            # no rom
+            return []
 
 class OnboardDevice(Info):
     def __init__(self):
-        Info.__init__(self, 'Onboard', '')
         self.ob_devices = self.onboardDevices()
+        Info.__init__(self, 'Onboard', '' if self.ob_devices else 'noop')
         info = [self.obToStr(i) for i in self.ob_devices]
         for i in info:
             self.addSubInfo(i)
@@ -181,12 +187,19 @@ class OnboardDevice(Info):
 class Disk(Info):
     def __init__(self):
         self.disks = self.diskList()
-        Info.__init__(self, 'Disks', ' '.join(self.disks))
+        Info.__init__(self, 'Disks', '{0} {1} GB Total'.format(' '.join(self.disks), self.countSize()))
         self.details = self.disksDetail(self.disks)
         detail_strs = [ self.extractDiskDetail(i) for i in self.details]
         for i in detail_strs:
             self.addSubInfo(i)
 
+    def countSize(self):
+        sum = 0
+        for i in self.disks:
+            cmd = 'blockdev --getsize64 ' + i
+            output = sh(cmd, True)
+            sum += int(output) // (10 ** 9)
+        return sum
     def diskList(self):
         """
         find out how many disk in this machine
