@@ -179,8 +179,8 @@ class OnboardDevice(Info):
         return ob_list
 
     def obToStr(self, ob):
-        tvalue = ob['Type']
-        desvalue = ob['Reference Designation']
+        tvalue = ob.get("Type")
+        desvalue = ob.get("Reference Designation")
         ret = '{0}: {1}\n'.format(tvalue, desvalue)
         return ret
 
@@ -244,9 +244,11 @@ class Disk(Info):
         return disk_list
 
     def extractDiskDetail(self, disk):
+        disk_node = disk.get("node", "Unknow disk node")
+        disk_device = disk.get("device", "Unknow disk device")
+        disk_capacity = disk.get("capacity", "Unknow disk capacity")
         line = '{node}: {device} {capacity}\n'.format(
-            node=disk['node'], device=disk['device'],
-            capacity=disk['capacity'])
+            node=disk_node, device=disk_device, capacity=disk_capacity)
         return line
 
 
@@ -283,12 +285,14 @@ class Memory(Info):
         return mem_list
 
     def extractMemDetail(self, mem):
+        mem_type = mem.get("Type", "Unknown Type")
+        mem_size = mem.get("Size", "Unknown Size")
         # maybe no memory in this slot
-        if 'Unknown' in mem['Type'] and 'No Module Installed' in mem['Size']:
+        if 'Unknown' in mem_type and 'No Module Installed' in mem_size:
             return ''
         mem_locator = mem.get("Locator", "Unknown Locator")
         mem_manufa = mem.get("Manufacturer", "Unknown Manufacturer")
-        mem_type = mem.get("Type", "Unknown Type")
+
         mem_speed = mem.get("Speed", "Unknown Speed")
         line = '{slot}: {manufa} {type} {speed}\n'.format(
             slot=mem_locator, manufa=mem_manufa,
