@@ -286,9 +286,13 @@ class Memory(Info):
         # maybe no memory in this slot
         if 'Unknown' in mem['Type'] and 'No Module Installed' in mem['Size']:
             return ''
+        mem_locator = mem.get("Locator", "Unknown Locator")
+        mem_manufa = mem.get("Manufacturer", "Unknown Manufacturer")
+        mem_type = mem.get("Type", "Unknown Type")
+        mem_speed = mem.get("Speed", "Unknown Speed")
         line = '{slot}: {manufa} {type} {speed}\n'.format(
-            slot=mem['Locator'], manufa=mem['Manufacturer'],
-            type=mem['Type'], speed=mem['Speed'])
+            slot=mem_locator, manufa=mem_manufa,
+            type=mem_type, speed=mem_type)
         return line
 
     def getDesc(self, mem_list):
